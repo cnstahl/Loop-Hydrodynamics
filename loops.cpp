@@ -10,15 +10,15 @@
 
 typedef unsigned long ulong;
 
-const int length = 4;
+const int length = 30;
 const int width  = length;    // System width 
 const int height = length;    // System height
 const int m = 3;           // number of colors
 int step  = 0;             // used for filenames
-int steps = 2000;            // simulation time
+int steps = 1000;            // simulation time
 int run = 0; 
 int runs = 1;
-int steps_per_print = 150;
+int steps_per_print = 2;
 std::string type = "data";
 
 // declare random number generator outside of main
@@ -33,6 +33,7 @@ std::uniform_int_distribution<int> rand_col(0,width-1);
 std::uniform_int_distribution<int> rand_dir(0,3); // 0 is E, 1 is N...
 std::uniform_int_distribution<int> rand_int2(0,1);
 std::uniform_int_distribution<int> rand_int3(0,2);
+std::uniform_int_distribution<int> rand_int4(0,3);
 
 //***************************************************************************//
 //*** Timing info                                                         ***//
@@ -119,10 +120,10 @@ bool is_flippable(int row, int col) {
 }
 
 //***************************************************************************//
-//*** Functions about Krylov labels                                       ***//
+//*** Functions about Krylov and symmetry labels                          ***//
 //***************************************************************************//
 
-#include "krylovs.h"
+#include "labels.h"
 
 //***************************************************************************//
 //*** Local and Nonlocal updates                                          ***//
@@ -157,24 +158,6 @@ void big_time_step(int time) {
 	for (int i = 0; i < time; i++) big_update();
 }
 
-void print_state() {
-	for (int row = 0; row < 2*height; row++) {
-		for (int col = 0; col < width; col++) {
-			std::cout << " · " << get_spin(row, col);
-		}
-		std::cout << " · " << "\n ";
-		row++;
-		for (int col = 0; col < width; col++) {
-			std::cout << get_spin(row, col) << "   ";
-		}
-		std::cout << get_spin(row, 0) << "\n";
-	}
-	for (int col = 0; col < width; col++) {
-		std::cout << " · " << get_spin(0, col);
-	}
-	std::cout << " · " << "\n";
-}
-
 //***************************************************************************//
 //*** Observables	                                                      ***//
 //***************************************************************************//
@@ -204,7 +187,7 @@ int is_trivial() {
 }
 
 //***************************************************************************//
-//*** Print and main                                                      ***//
+//*** Printing stuff                                                      ***//
 //***************************************************************************//
 
 // std::function<void(int time)> update_func = &time_step;
@@ -218,6 +201,73 @@ std::string name = "is_trivial";
 
 // std::function<int()> func = &count_flippable;
 // std::string name = "flippable";
+
+void print_state() {
+	for (int row = 0; row < 2*height; row++) {
+		for (int col = 0; col < width; col++) {
+			std::cout << " · " << get_spin(row, col);
+		}
+		std::cout << " · " << "\n ";
+		row++;
+		for (int col = 0; col < width; col++) {
+			std::cout << get_spin(row, col) << "   ";
+		}
+		std::cout << get_spin(row, 0) << "\n";
+	}
+	for (int col = 0; col < width; col++) {
+		std::cout << " · " << get_spin(0, col);
+	}
+	std::cout << " · " << "\n";
+}
+
+void print_state_to_file() {
+	std::ofstream myfile;
+	myfile.open (type + "/" + "full_print" + std::to_string(width) + "by" + 
+				 std::to_string(height) + ".dat");
+
+	myfile << "Entire system printouts in a " + std::to_string(width) + "by"
+				+ std::to_string(height) + "system. Rows are steps\n";
+
+	for (step = 0; step < steps; step++) {
+		time_step(steps_per_print);
+		for (int row = 0; row < 2*height; row++) {
+			for (int col = 0; col < width; col++) {
+				myfile << get_spin(row, col) << ", "; 
+			}
+			row++; // only print horizontal bonds
+		}	
+	myfile << "\n";		
+	}
+}
+
+// print 1-form densities on plaquette variables
+// currently prints only y component
+void print_hydro_density() {
+	std::ofstream myfile;
+	myfile.open (type + "/" + "hydro_j" + std::to_string(width) + "by" + 
+				 std::to_string(height) + ".dat");
+
+	myfile << "Hydro densities in a " + std::to_string(width) + "by"
+				+ std::to_string(height) + "system. Rows are steps\n";
+
+	int int_to_print;
+	time_step(500);
+
+	for (step = 0; step < steps; step++) {
+		time_step(steps_per_print);
+		for (int row = 0; row < height; row++) {
+			for (int col = 0; col < width; col++) {
+				int_to_print = ((row+col) % 2) ? 1 : -1; // background charge configuration
+				// int_to_print = 0;
+				if (get_spin(2*row, col) == 0) {
+					int_to_print = ((row+col) % 2) ? -2 : 2; // print +2 for even sublattice
+				}
+				myfile << int_to_print << ", ";
+			}
+		}	
+	myfile << "\n";		
+	}
+}
 
 void print_data() {
 	std::ofstream myfile;
@@ -238,18 +288,21 @@ void print_data() {
 	}
 }
 
+//***************************************************************************//
+//*** Main                                                                ***//
+//***************************************************************************//
+
 int main(int argc, char *argv[]) {
-	print_state();
+	// print_state();
 	// std::cout << std::to_string(seed);
 
 	// print_data();
-	// print_N_trivial();
+	print_hydro_density();
 
-	std::cout << "\n\n\n";
-	big_time_step(1);
-	std::cout << vert_label_length() << " and " << horz_label_length() << "\n";
-	// std::cout << is_trivial() << "\n";
-	print_state();
+	// std::cout << "\n\n\n";
+	// big_time_step(1);
+	// std::cout << vert_label_length() << " and " << horz_label_length() << "\n";
+	// print_state();
 }
 
 
