@@ -10,15 +10,15 @@
 
 typedef unsigned long ulong;
 
-const int length = 30;
+const int length = 100;
 const int width  = length;    // System width 
 const int height = length;    // System height
 const int m = 3;           // number of colors
 int step  = 0;             // used for filenames
-int steps = 1000;            // simulation time
+int steps = 100;            // simulation time
 int run = 0; 
 int runs = 1;
-int steps_per_print = 2;
+int steps_per_print = 10;
 std::string type = "data";
 
 // declare random number generator outside of main
@@ -241,11 +241,11 @@ void print_state_to_file() {
 }
 
 // print 1-form densities on plaquette variables
-// currently prints only y component
+// currently prints only y component (which lives on x bonds)
 void print_hydro_density() {
 	std::ofstream myfile;
 	myfile.open (type + "/" + "hydro_j" + std::to_string(width) + "by" + 
-				 std::to_string(height) + ".dat");
+				 std::to_string(height) + "t" + std::to_string(steps_per_print) + ".dat");
 
 	myfile << "Hydro densities in a " + std::to_string(width) + "by"
 				+ std::to_string(height) + "system. Rows are steps\n";
@@ -257,10 +257,13 @@ void print_hydro_density() {
 		time_step(steps_per_print);
 		for (int row = 0; row < height; row++) {
 			for (int col = 0; col < width; col++) {
-				int_to_print = ((row+col) % 2) ? 1 : -1; // background charge configuration
-				// int_to_print = 0;
+				// int_to_print = ((row+col) % 2) ? 1 : -1; // background charge configuration
+				int_to_print = 0;
 				if (get_spin(2*row, col) == 0) {
-					int_to_print = ((row+col) % 2) ? -2 : 2; // print +2 for even sublattice
+					int_to_print += ((row+col) % 2) ? -1 : 1; // print +1 for even sublattice
+				}
+				if (get_spin(2*row+2, col) == 0) {
+					int_to_print += ((row+col+1) % 2) ? -1 : 1; // print +1 for even sublattice
 				}
 				myfile << int_to_print << ", ";
 			}
